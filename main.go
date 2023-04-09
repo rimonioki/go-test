@@ -1,36 +1,29 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+
+	"github.com/uptrace/bunrouter"
+	"github.com/uptrace/bunrouter/extra/reqlog"
 )
 
 func main() {
-	// Loop through the data node for the FirstName
+	router := bunrouter.New(
+		bunrouter.Use(reqlog.NewMiddleware()),
+	)
 
-	http.HandleFunc("/products", func(w http.ResponseWriter, r *http.Request) {
-		limit := r.URL.Query().Get("limit")
-		products := getProducts(limit)
-		json.NewEncoder(w).Encode(products)
-	})
-
+	router.GET("/", indexHandler)
+	db := ConnectDB()
+	db.AutoMigrate(&Product{})
+	CreateDummyData(db)
+	router.GET("/products/new", newProductHandler)
+	router.GET("/products", productsHandler)
+	router.GET("/products/:id", productHandler)
+	router.POST("/products", createProductHandler)
 	fmt.Printf("Starting server at port 8080\n")
-	if err := http.ListenAndServe(":8080", nil); err != nil {
+	if err := http.ListenAndServe(":8080", router); err != nil {
 		log.Fatal(err)
 	}
-}
-
-func getProducts(limit string) []Product {
-	var result Response
-	if limit == "" {
-		limit = "5"
-	}
-	res, _ := Fetch("https://dummyjson.com/products?limit=" + string(limit))
-
-	if err := json.Unmarshal(res, &result); err != nil {
-		fmt.Println("Can not unmarshal JSON")
-	}
-	return result.Products
 }
